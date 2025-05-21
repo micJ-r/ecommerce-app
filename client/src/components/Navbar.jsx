@@ -1,11 +1,11 @@
-import React, { useState, useContext, useEffect } from 'react';
+import React, { useState, useContext, useEffect, useRef } from 'react';
 import { NavLink } from 'react-router-dom';
 import { FiShoppingCart, FiUser, FiChevronDown, FiSearch, FiMenu, FiGlobe, FiMoreHorizontal } from 'react-icons/fi';
 import { FaHome, FaBoxOpen, FaInfoCircle, FaEnvelope, FaFire } from 'react-icons/fa';
 import { CartContext } from './context/CartContext';
 
 const Navbar = () => {
-  const { cartItems, getCartCount } = useContext(CartContext); // Added getCartCount
+  const { cartItems, getCartCount } = useContext(CartContext);
   const [isAccountOpen, setIsAccountOpen] = useState(false);
   const [isPrefsOpen, setIsPrefsOpen] = useState(false);
   const [isMoreOpen, setIsMoreOpen] = useState(false);
@@ -16,52 +16,75 @@ const Navbar = () => {
     language: 'English',
     currency: 'USD'
   });
-const countries = [
-  // North America
-  'United States', 
-  'Canada',
-  'Mexico',
-  
-  // Europe
-  'United Kingdom','Germany','France','Italy',
-  'Spain','Netherlands','Sweden',
-  
-  // Asia
-  'Japan','China','India','South Korea','Singapore',
-  
-  // Africa
-  'South Africa','Nigeria',
-  'Kenya','Tanzania','Uganda',
-  'Rwanda','Ethiopia','Egypt',
-  
-  // Middle East
-  'United Arab Emirates','Saudi Arabia',
-  
-  // Oceania
-  'Australia','New Zealand'
-];
 
-const languages = [
-  'English','Spanish','French',
-  'German','Italian','Portuguese',
-  'Russian','Chinese', 'Japanese',
-  'Korean','Arabic','Hindi',
-  'Swahili','Amharic','Afrikaans'
-];
+  // Refs for dropdown containers
+  const accountRef = useRef(null);
+  const prefsRef = useRef(null);
+  const moreRef = useRef(null);
+  const mobileMenuRef = useRef(null);
 
-const currencies = [
-  // Major currencies
-  'USD','EUR','GBP','JPY','CAD','AUD', 
-  
-  // African currencies
-  'KES', 'TZS','UGX','ZAR','NGN', 
-  
-  // Asian currencies
-  'CNY','INR','SGD', 
-  
-  // Middle East
-  'AED','SAR', 
-];
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (isAccountOpen && accountRef.current && !accountRef.current.contains(event.target)) {
+        setIsAccountOpen(false);
+      }
+      if (isPrefsOpen && prefsRef.current && !prefsRef.current.contains(event.target)) {
+        setIsPrefsOpen(false);
+      }
+      if (isMoreOpen && moreRef.current && !moreRef.current.contains(event.target)) {
+        setIsMoreOpen(false);
+      }
+      if (isMobileMenuOpen && mobileMenuRef.current && !mobileMenuRef.current.contains(event.target)) {
+        setIsMobileMenuOpen(false);
+      }
+    };
+
+    // Add event listener when any dropdown is open
+    if (isAccountOpen || isPrefsOpen || isMoreOpen || isMobileMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    // Cleanup
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isAccountOpen, isPrefsOpen, isMoreOpen, isMobileMenuOpen]);
+
+  const countries = [
+    // North America
+    'United States', 'Canada', 'Mexico',
+    // Europe
+    'United Kingdom', 'Germany', 'France', 'Italy',
+    'Spain', 'Netherlands', 'Sweden',
+    // Asia
+    'Japan', 'China', 'India', 'South Korea', 'Singapore',
+    // Africa
+    'South Africa', 'Nigeria', 'Kenya', 'Tanzania', 'Uganda',
+    'Rwanda', 'Ethiopia', 'Egypt',
+    // Middle East
+    'United Arab Emirates', 'Saudi Arabia',
+    // Oceania
+    'Australia', 'New Zealand'
+  ];
+
+  const languages = [
+    'English', 'Spanish', 'French', 'German', 'Italian', 'Portuguese',
+    'Russian', 'Chinese', 'Japanese', 'Korean', 'Arabic', 'Hindi',
+    'Swahili', 'Amharic', 'Afrikaans'
+  ];
+
+  const currencies = [
+    // Major currencies
+    'USD', 'EUR', 'GBP', 'JPY', 'CAD', 'AUD', 
+    // African currencies
+    'KES', 'TZS', 'UGX', 'ZAR', 'NGN', 
+    // Asian currencies
+    'CNY', 'INR', 'SGD', 
+    // Middle East
+    'AED', 'SAR', 
+  ];
+
   // Load preferences from localStorage
   useEffect(() => {
     const savedPrefs = localStorage.getItem('preferences');
@@ -83,14 +106,13 @@ const currencies = [
     setIsPrefsOpen(false);
   };
 
-  // Updated to use getCartCount instead of cartItems.length
   const cartCount = getCartCount();
 
   return (
     <nav className="bg-amber-50 p-4 shadow-md sticky top-0 z-50 border-b border-amber-100">
       {/* Preferences Popup */}
       {isPrefsOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div ref={prefsRef} className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-md">
             <h3 className="text-xl font-bold text-amber-800 mb-4">Your Preferences</h3>
             
@@ -255,7 +277,7 @@ const currencies = [
               </button>
 
               {isAccountOpen && (
-                <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-xl py-2 z-50 border border-amber-100">
+                <div ref={accountRef} className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-xl py-2 z-50 border border-amber-100">
                   <NavLink
                     to="/login"
                     className="block px-4 py-3 text-amber-900 hover:bg-amber-50 hover:text-amber-700 font-medium transition-colors"
@@ -272,21 +294,21 @@ const currencies = [
                   </NavLink>
                   <div className="border-t border-amber-100 my-1"></div>
                   <NavLink
-                    to="/account"
+                    to="/user/profile"
                     className="block px-4 py-3 text-amber-900 hover:bg-amber-50 hover:text-amber-700 transition-colors"
                     onClick={() => setIsAccountOpen(false)}
                   >
                     My Profile
                   </NavLink>
                   <NavLink
-                    to="/orders"
+                    to="/user/orders"
                     className="block px-4 py-3 text-amber-900 hover:bg-amber-50 hover:text-amber-700 transition-colors"
                     onClick={() => setIsAccountOpen(false)}
                   >
                     My Orders
                   </NavLink>
                   <NavLink
-                    to="/wishlist"
+                    to="/user/wishlist"
                     className="block px-4 py-3 text-amber-900 hover:bg-amber-50 hover:text-amber-700 transition-colors"
                     onClick={() => setIsAccountOpen(false)}
                   >
@@ -301,7 +323,7 @@ const currencies = [
         {/* Secondary Navigation - Desktop */}
         <div className="hidden md:flex justify-center mt-4 space-x-2">
           <NavLink
-            to="/user/"
+            to="/"
             className={({ isActive }) =>
               `flex items-center py-2 px-4 rounded-full hover:bg-amber-100 transition-colors ${isActive ? 'bg-amber-100 text-amber-800 font-medium' : 'text-amber-700 hover:text-amber-900'}`
             }
@@ -309,7 +331,7 @@ const currencies = [
             <FaHome className="mr-2" /> Home
           </NavLink>
           <NavLink
-            to="/products"
+            to="/user/product"
             className={({ isActive }) =>
               `flex items-center py-2 px-4 rounded-full hover:bg-amber-100 transition-colors ${isActive ? 'bg-amber-100 text-amber-800 font-medium' : 'text-amber-700 hover:text-amber-900'}`
             }
@@ -317,7 +339,7 @@ const currencies = [
             <FaBoxOpen className="mr-2" /> Products
           </NavLink>
           <NavLink
-            to="/deals"
+            to="/user/deals"
             className={({ isActive }) =>
               `flex items-center py-2 px-4 rounded-full hover:bg-amber-100 transition-colors ${isActive ? 'bg-amber-100 text-amber-800 font-medium' : 'text-amber-700 hover:text-amber-900'}`
             }
@@ -325,7 +347,7 @@ const currencies = [
             <FaFire className="mr-2 text-amber-500" /> Hot Deals
           </NavLink>
           <NavLink
-            to="/about"
+            to="/user/about"
             className={({ isActive }) =>
               `flex items-center py-2 px-4 rounded-full hover:bg-amber-100 transition-colors ${isActive ? 'bg-amber-100 text-amber-800 font-medium' : 'text-amber-700 hover:text-amber-900'}`
             }
@@ -333,7 +355,7 @@ const currencies = [
             <FaInfoCircle className="mr-2" /> About
           </NavLink>
           <NavLink
-            to="/contact"
+            to="/user/contact"
             className={({ isActive }) =>
               `flex items-center py-2 px-4 rounded-full hover:bg-amber-100 transition-colors ${isActive ? 'bg-amber-100 text-amber-800 font-medium' : 'text-amber-700 hover:text-amber-900'}`
             }
@@ -351,23 +373,23 @@ const currencies = [
             </button>
             
             {isMoreOpen && (
-              <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl py-2 z-50 border border-amber-100">
+              <div ref={moreRef} className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl py-2 z-50 border border-amber-100">
                 <NavLink
-                  to="/blog"
+                  to="/user/blog"
                   className="block px-4 py-3 text-amber-900 hover:bg-amber-50 hover:text-amber-700 transition-colors"
                   onClick={() => setIsMoreOpen(false)}
                 >
                   Blog
                 </NavLink>
                 <NavLink
-                  to="/faq"
+                  to="/user/faq"
                   className="block px-4 py-3 text-amber-900 hover:bg-amber-50 hover:text-amber-700 transition-colors"
                   onClick={() => setIsMoreOpen(false)}
                 >
                   FAQ
                 </NavLink>
                 <NavLink
-                  to="/stores"
+                  to="/user/stores"
                   className="block px-4 py-3 text-amber-900 hover:bg-amber-50 hover:text-amber-700 transition-colors"
                   onClick={() => setIsMoreOpen(false)}
                 >
@@ -390,7 +412,7 @@ const currencies = [
 
         {/* Mobile Menu */}
         {isMobileMenuOpen && (
-          <div className="md:hidden mt-4 bg-white rounded-lg p-4 shadow-lg border border-amber-100">
+          <div ref={mobileMenuRef} className="md:hidden mt-4 bg-white rounded-lg p-4 shadow-lg border border-amber-100">
             <div className="space-y-2">
               <NavLink
                 to="/"
@@ -400,28 +422,28 @@ const currencies = [
                 Home
               </NavLink>
               <NavLink
-                to="/products"
+                to="/user/product"
                 className="block py-3 px-4 rounded-lg hover:bg-amber-50 text-amber-800 hover:text-amber-900 transition-colors"
                 onClick={() => setIsMobileMenuOpen(false)}
               >
                 Products
               </NavLink>
               <NavLink
-                to="/deals"
+                to="/user/deals"
                 className="block py-3 px-4 rounded-lg hover:bg-amber-50 text-amber-800 hover:text-amber-900 transition-colors"
                 onClick={() => setIsMobileMenuOpen(false)}
               >
                 Hot Deals
               </NavLink>
               <NavLink
-                to="/about"
+                to="/user/about"
                 className="block py-3 px-4 rounded-lg hover:bg-amber-50 text-amber-800 hover:text-amber-900 transition-colors"
                 onClick={() => setIsMobileMenuOpen(false)}
               >
                 About Us
               </NavLink>
               <NavLink
-                to="/contact"
+                to="/user/contact"
                 className="block py-3 px-4 rounded-lg hover:bg-amber-50 text-amber-800 hover:text-amber-900 transition-colors"
                 onClick={() => setIsMobileMenuOpen(false)}
               >

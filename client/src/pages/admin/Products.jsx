@@ -8,12 +8,14 @@ import {
   FaChevronLeft,
   FaChevronRight,
 } from 'react-icons/fa';
+import Swal from 'sweetalert2';
+import withReactContent from 'sweetalert2-react-content';
 
-const API_BASE = 'http://localhost:5000/api/products';
+const MySwal = withReactContent(Swal);
+const API_BASE = 'http://localhost:5000';
 
 const ProductList = () => {
   const [products, setProducts] = useState([]);
-  const [viewProduct, setViewProduct] = useState(null);
   const [editProduct, setEditProduct] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData, setFormData] = useState({
@@ -27,10 +29,15 @@ const ProductList = () => {
 
   const fetchProducts = async () => {
     try {
-      const res = await axios.get(API_BASE);
-      setProducts(res.data.products);
+      const res = await axios.get(`${API_BASE}/api/products`);
+      setProducts(res.data.products || []);
     } catch (error) {
       console.error('Error fetching products:', error);
+      MySwal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'Failed to fetch products',
+      });
     }
   };
 
@@ -39,12 +46,33 @@ const ProductList = () => {
   }, []);
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this product?')) return;
-    try {
-      await axios.delete(`${API_BASE}/${id}`);
-      fetchProducts();
-    } catch (error) {
-      console.error('Error deleting product:', error);
+    const result = await MySwal.fire({
+      title: 'Are you sure?',
+      text: "You won't be able to revert this!",
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#3085d6',
+      cancelButtonColor: '#d33',
+      confirmButtonText: 'Yes, delete it!'
+    });
+
+    if (result.isConfirmed) {
+      try {
+        await axios.delete(`${API_BASE}/api/products/${id}`);
+        await MySwal.fire(
+          'Deleted!',
+          'Your product has been deleted.',
+          'success'
+        );
+        fetchProducts();
+      } catch (error) {
+        console.error('Error deleting product:', error);
+        MySwal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: 'Failed to delete product',
+        });
+      }
     }
   };
 
@@ -60,7 +88,25 @@ const ProductList = () => {
   };
 
   const handleViewClick = (product) => {
-    setViewProduct(product);
+    MySwal.fire({
+      title: product.name,
+      html: `
+        <div class="text-left">
+          <img src="${
+            product.image?.startsWith('/uploads')
+              ? `${API_BASE}${product.image}`
+              : product.image?.includes('http')
+                ? product.image
+                : `${API_BASE}/uploads/${product.image}`
+          }" alt="${product.name}" class="w-full h-48 object-cover rounded mb-4" onerror="this.src='/placeholder-image.png'"/>
+          <p><strong>Description:</strong> ${product.description}</p>
+          <p><strong>Price:</strong> ₹${product.price}</p>
+        </div>
+      `,
+      showConfirmButton: true,
+      confirmButtonText: 'Close',
+      width: '600px'
+    });
   };
 
   const handleFormChange = (e) => {
@@ -83,12 +129,13 @@ const ProductList = () => {
         formDataToSend.append('image', formData.image);
       }
 
+      let response;
       if (editProduct) {
-        await axios.put(`${API_BASE}/${editProduct._id}`, formDataToSend, {
+        response = await axios.put(`${API_BASE}/api/products/${editProduct._id}`, formDataToSend, {
           headers: { 'Content-Type': 'multipart/form-data' },
         });
       } else {
-        await axios.post(API_BASE, formDataToSend, {
+        response = await axios.post(`${API_BASE}/api/products`, formDataToSend, {
           headers: { 'Content-Type': 'multipart/form-data' },
         });
       }
@@ -96,10 +143,21 @@ const ProductList = () => {
       setFormData({ name: '', description: '', price: '', image: null });
       setEditProduct(null);
       setIsModalOpen(false);
+      
+      await MySwal.fire({
+        icon: 'success',
+        title: 'Success',
+        text: editProduct ? 'Product updated successfully!' : 'Product added successfully!',
+      });
+      
       fetchProducts();
     } catch (error) {
       console.error('Error saving product:', error);
-      alert('Error saving product. Please check the console for details.');
+      MySwal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'Error saving product. Please check the console for details.',
+      });
     }
   };
 
@@ -107,6 +165,7 @@ const ProductList = () => {
   const indexOfFirstProduct = indexOfLastProduct - productsPerPage;
   const currentProducts = products.slice(indexOfFirstProduct, indexOfLastProduct);
   const totalPages = Math.ceil(products.length / productsPerPage);
+
   const paginate = (pageNumber) => setCurrentPage(pageNumber);
 
   return (
@@ -131,30 +190,83 @@ const ProductList = () => {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-100">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Image</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                <th className="px-6 py-3">Image</th>
+                <th className="px-6 py-3">Name</th>
+                <th className="px-6 py-3">Price</th>
+                <th className="px-6 py-3">Actions</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {currentProducts.map((product) => (
                 <tr key={product._id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4">
-                    <img src={product.image} alt={product.name} className="w-16 h-16 object-cover rounded" />
-                  </td>
+                 <td className="px-6 py-4">
+                  <img
+                    src={
+                      product.image?.startsWith('/uploads')
+                        ? `${API_BASE}${product.image}`
+                        : product.image?.includes('http')
+                          ? product.image
+                          : `${API_BASE}/uploads/${product.image}`
+                    }
+                    alt={product.name}
+                    className="w-16 h-16 object-cover rounded"
+                    onError={(e) => {
+                      e.target.onerror = null;
+                      e.target.src = '/placeholder-image.png';
+                    }}
+                  />
+                </td>
                   <td className="px-6 py-4">{product.name}</td>
-                  <td className="px-6 py-4">${product.price}</td>
+                  <td className="px-6 py-4">₹{product.price}</td>
                   <td className="px-6 py-4 flex gap-3">
-                    <button onClick={() => handleViewClick(product)} className="text-blue-600 hover:text-blue-900" title="View"><FaEye /></button>
-                    <button onClick={() => handleEditClick(product)} className="text-green-600 hover:text-green-900" title="Edit"><FaEdit /></button>
-                    <button onClick={() => handleDelete(product._id)} className="text-red-600 hover:text-red-900" title="Delete"><FaTrash /></button>
+                    <button 
+                      onClick={() => handleViewClick(product)} 
+                      className="text-blue-600 hover:text-blue-900"
+                      title="View"
+                    >
+                      <FaEye />
+                    </button>
+                    <button 
+                      onClick={() => handleEditClick(product)} 
+                      className="text-green-600 hover:text-green-900"
+                      title="Edit"
+                    >
+                      <FaEdit />
+                    </button>
+                    <button 
+                      onClick={() => handleDelete(product._id)} 
+                      className="text-red-600 hover:text-red-900"
+                      title="Delete"
+                    >
+                      <FaTrash />
+                    </button>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+      </div>
+
+      {/* Pagination */}
+      <div className="mt-4 flex justify-center items-center gap-2">
+        <button
+          disabled={currentPage === 1}
+          onClick={() => paginate(currentPage - 1)}
+          className="px-2 py-1 border rounded disabled:opacity-50"
+        >
+          <FaChevronLeft />
+        </button>
+        <span>
+          Page {currentPage} of {totalPages}
+        </span>
+        <button
+          disabled={currentPage === totalPages}
+          onClick={() => paginate(currentPage + 1)}
+          className="px-2 py-1 border rounded disabled:opacity-50"
+        >
+          <FaChevronRight />
+        </button>
       </div>
 
       {/* Modal Form */}
@@ -216,6 +328,13 @@ const ProductList = () => {
                   accept="image/*"
                   required={!editProduct}
                 />
+                {editProduct && typeof formData.image === 'string' && (
+                  <img
+                    src={`${API_BASE}/uploads/${formData.image}`}
+                    alt="Preview"
+                    className="w-20 h-20 mt-2 object-cover rounded"
+                  />
+                )}
               </div>
               <div className="flex justify-end gap-2">
                 <button

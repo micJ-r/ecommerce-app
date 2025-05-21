@@ -17,7 +17,15 @@ const productSchema = new mongoose.Schema({
   },
   image: {
     type: String,
-    required: true, // URL to image (e.g., from Unsplash or uploaded)
+    required: true, // File path to uploaded image
+  },
+  category: {
+    type: String,
+    default: 'uncategorized',
+  },
+  stock: {
+    type: Number,
+    default: 0,
   },
   createdAt: {
     type: Date,

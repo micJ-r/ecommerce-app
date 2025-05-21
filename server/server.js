@@ -2,15 +2,17 @@ require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
+const path = require('path');
 
 const app = express();
 const PORT = process.env.PORT || 8000;
 
 // Import routes
 const authRoutes = require('./routes/authRoutes');
-const userRoutes = require('./routes/userRoutes');     // NEW: admin routes
+const userRoutes = require('./routes/userRoutes');     // admin routes
 const productRoutes = require('./routes/productRoutes');
 const orderRoutes = require('./routes/orderRoutes');
+const uploadRoutes = require('./routes/uploadRoutes'); // ✅ ENABLED: image uploads
 
 // Middleware
 app.use(cors({
@@ -21,12 +23,24 @@ app.use(cors({
 }));
 app.use(express.json());
 
-// Route mounting
-app.use('/api/auth', authRoutes);        // register, login, logout, me
-app.use('/api/users', userRoutes);       // admin user management
+// Routes
+app.use('/api/auth', authRoutes);        
+app.use('/api/users', userRoutes);       
 app.use('/api/products', productRoutes);
 app.use('/api/orders', orderRoutes);
+app.use('/api/uploads', uploadRoutes);   // ✅ ENABLED: image upload route
 
+// Serve uploaded files statically
+// app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+// Add this after your other middleware
+app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
+  setHeaders: (res, path) => {
+    // Cache images for 1 year
+    if (path.match(/\.(jpg|jpeg|png|gif)$/)) {
+      res.setHeader('Cache-Control', 'public, max-age=31536000');
+    }
+  }
+}));
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);
@@ -36,7 +50,7 @@ app.use((err, req, res, next) => {
 // Database connection and server start
 mongoose.connect(process.env.MONGODB_URI)
   .then(() => {
-    console.log('Connected to MongoDB');
-    app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+    console.log('✅ Connected to MongoDB');
+    app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
   })
-  .catch(err => console.error('MongoDB connection error:', err));
+  .catch(err => console.error('❌ MongoDB connection error:', err));

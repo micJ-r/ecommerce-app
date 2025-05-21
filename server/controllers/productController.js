@@ -1,31 +1,31 @@
+const mongoose = require('mongoose');
 const Product = require('../models/Product');
+const path = require('path');
 
-// Create new product
+// Create new product with image upload
 exports.createProduct = async (req, res) => {
   try {
-    const { name, description, price, image, category, stock } = req.body;
+    const { name, description, price, category, stock } = req.body;
+    const image = req.file ? `/uploads/${req.file.filename}` : null;
 
-    // Validate required fields
     if (!name || !description || !price || !image) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        error: 'Name, description, price and image are required fields' 
+        error: 'Name, description, price, and image are required'
       });
     }
 
-    // Validate price is a positive number
     if (isNaN(price) || price <= 0) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        error: 'Price must be a positive number' 
+        error: 'Price must be a positive number'
       });
     }
 
-    // Validate stock if provided
-    if (stock && (isNaN(stock) || stock < 0)) {
-      return res.status(400).json({ 
+    if (stock !== undefined && (isNaN(stock) || stock < 0)) {
+      return res.status(400).json({
         success: false,
-        error: 'Stock must be a positive number or zero' 
+        error: 'Stock must be a non-negative number'
       });
     }
 
@@ -33,130 +33,90 @@ exports.createProduct = async (req, res) => {
       name,
       description,
       price,
-      image,
+      image, // ✅ full path saved
       category: category || 'uncategorized',
       stock: stock || 0,
     });
 
     const savedProduct = await newProduct.save();
-    
+
     res.status(201).json({
       success: true,
       message: 'Product created successfully',
-      product: savedProduct
+      product: savedProduct,
     });
 
   } catch (error) {
-    console.error('Error creating product:', error);
-    res.status(500).json({ 
-      success: false,
-      error: 'Server error while creating product',
-      message: error.message 
-    });
+    console.error('Create error:', error);
+    res.status(500).json({ success: false, error: 'Server error', message: error.message });
   }
 };
+
 
 // Get all products
 exports.getAllProducts = async (req, res) => {
   try {
-    // Optional query parameters for filtering
     const { category, minPrice, maxPrice, name, sort } = req.query;
-    let query = {};
+    const query = {};
 
-    // Build query based on parameters
-    if (category) {
-      query.category = category;
-    }
+    if (category) query.category = category;
+    if (name) query.name = { $regex: name, $options: 'i' };
     if (minPrice || maxPrice) {
       query.price = {};
-      if (minPrice) query.price.$gte = Number(minPrice);
-      if (maxPrice) query.price.$lte = Number(maxPrice);
-    }
-    if (name) {
-      query.name = { $regex: name, $options: 'i' }; // Case-insensitive search
+      if (minPrice) query.price.$gte = parseFloat(minPrice);
+      if (maxPrice) query.price.$lte = parseFloat(maxPrice);
     }
 
-    // Sorting options
-    let sortOption = { createdAt: -1 }; // Default: newest first
+    let sortOption = { createdAt: -1 };
     if (sort === 'price_asc') sortOption = { price: 1 };
     if (sort === 'price_desc') sortOption = { price: -1 };
     if (sort === 'name_asc') sortOption = { name: 1 };
     if (sort === 'name_desc') sortOption = { name: -1 };
 
-    const products = await Product.find(query)
-      .sort(sortOption)
-      .select('-__v'); // Exclude version key
+    const products = await Product.find(query).sort(sortOption).select('-__v');
 
-    res.status(200).json({
-      success: true,
-      count: products.length,
-      products
-    });
-
+    res.status(200).json({ success: true, count: products.length, products });
   } catch (error) {
-    console.error('Error fetching products:', error);
-    res.status(500).json({ 
-      success: false,
-      error: 'Failed to fetch products',
-      message: error.message 
-    });
+    console.error('Fetch error:', error);
+    res.status(500).json({ success: false, message: 'Failed to fetch products', error: error.message });
   }
 };
 
-// Get a single product by ID
+// Get product by ID
 exports.getProduct = async (req, res) => {
   const { id } = req.params;
-  
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({ success: false, message: 'Invalid product ID format' });
+  }
+
   try {
     const product = await Product.findById(id).select('-__v');
-    
     if (!product) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Product not found' 
-      });
+      return res.status(404).json({ success: false, message: 'Product not found' });
     }
-    
-    res.status(200).json({ 
-      success: true, 
-      product 
-    });
 
+    res.status(200).json({ success: true, product });
   } catch (error) {
-    console.error('Error fetching product:', error);
-    if (error.kind === 'ObjectId') {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Invalid product ID format' 
-      });
-    }
-    res.status(500).json({ 
-      success: false, 
-      message: 'Server error fetching product',
-      error: error.message 
-    });
+    console.error('Get error:', error);
+    res.status(500).json({ success: false, message: 'Server error', error: error.message });
   }
 };
 
-// Update a product
+// Update product
 exports.updateProduct = async (req, res) => {
   const { id } = req.params;
-  
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({ success: false, message: 'Invalid product ID format' });
+  }
+
   try {
-    // Validate price if provided
-    if (req.body.price && (isNaN(req.body.price) || req.body.price <= 0)) {
-      return res.status(400).json({ 
-        success: false,
-        error: 'Price must be a positive number' 
-      });
+    const { price, stock } = req.body;
+    if (price !== undefined && (isNaN(price) || price <= 0)) {
+      return res.status(400).json({ success: false, error: 'Price must be a positive number' });
     }
 
-    // Validate stock if provided
-    if (req.body.stock && (isNaN(req.body.stock) || req.body.stock < 0)) {
-      return res.status(400).json({ 
-        success: false,
-        error: 'Stock must be a positive number or zero' 
-      });
+    if (stock !== undefined && (isNaN(stock) || stock < 0)) {
+      return res.status(400).json({ success: false, error: 'Stock must be a non-negative number' });
     }
 
     const updatedProduct = await Product.findByIdAndUpdate(
@@ -166,81 +126,44 @@ exports.updateProduct = async (req, res) => {
     ).select('-__v');
 
     if (!updatedProduct) {
-      return res.status(404).json({ 
-        success: false,
-        message: 'Product not found' 
-      });
+      return res.status(404).json({ success: false, message: 'Product not found' });
     }
 
-    res.status(200).json({
-      success: true,
-      message: 'Product updated successfully',
-      product: updatedProduct
-    });
-
+    res.status(200).json({ success: true, message: 'Product updated', product: updatedProduct });
   } catch (error) {
-    console.error('Error updating product:', error);
-    if (error.kind === 'ObjectId') {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Invalid product ID format' 
-      });
-    }
-    res.status(500).json({ 
-      success: false,
-      message: 'Server error while updating product',
-      error: error.message 
-    });
+    console.error('Update error:', error);
+    res.status(500).json({ success: false, message: 'Server error', error: error.message });
   }
 };
 
-// Delete a product
+// Delete product
 exports.deleteProduct = async (req, res) => {
   const { id } = req.params;
-  
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({ success: false, message: 'Invalid product ID format' });
+  }
+
   try {
-    const deletedProduct = await Product.findByIdAndDelete(id);
-
-    if (!deletedProduct) {
-      return res.status(404).json({ 
-        success: false,
-        message: 'Product not found' 
-      });
+    const deleted = await Product.findByIdAndDelete(id);
+    if (!deleted) {
+      return res.status(404).json({ success: false, message: 'Product not found' });
     }
 
-    res.status(200).json({
-      success: true,
-      message: 'Product deleted successfully'
-    });
-
+    res.status(200).json({ success: true, message: 'Product deleted successfully' });
   } catch (error) {
-    console.error('Error deleting product:', error);
-    if (error.kind === 'ObjectId') {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Invalid product ID format' 
-      });
-    }
-    res.status(500).json({ 
-      success: false,
-      message: 'Server error while deleting product',
-      error: error.message 
-    });
+    console.error('Delete error:', error);
+    res.status(500).json({ success: false, message: 'Server error', error: error.message });
   }
 };
 
 // Search products
 exports.searchProducts = async (req, res) => {
-  try {
-    const { query } = req.query;
-    
-    if (!query) {
-      return res.status(400).json({ 
-        success: false,
-        message: 'Search query is required' 
-      });
-    }
+  const { query } = req.query;
+  if (!query) {
+    return res.status(400).json({ success: false, message: 'Search query is required' });
+  }
 
+  try {
     const products = await Product.find({
       $or: [
         { name: { $regex: query, $options: 'i' } },
@@ -249,18 +172,9 @@ exports.searchProducts = async (req, res) => {
       ]
     }).select('-__v');
 
-    res.status(200).json({
-      success: true,
-      count: products.length,
-      products
-    });
-
+    res.status(200).json({ success: true, count: products.length, products });
   } catch (error) {
-    console.error('Error searching products:', error);
-    res.status(500).json({ 
-      success: false,
-      message: 'Server error while searching products',
-      error: error.message 
-    });
+    console.error('Search error:', error);
+    res.status(500).json({ success: false, message: 'Server error', error: error.message });
   }
 };

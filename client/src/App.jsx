@@ -20,6 +20,15 @@ import LandingPage from './components/LandingPage';
 import AdminLayout from './components/admin/adminLayout';
 import UserLayout from './components/user/userLayout';
 import { CartProvider } from './components/context/CartContext';
+import CustomerProduct from './pages/user/CustomerProduct';
+import Cart from './pages/user/Cart';
+import CustomerDeals from './pages/user/CustomerDeals';
+import About from './pages/user/About';
+import Contacts from './pages/user/Contacts';
+import Blog from './pages/user/Blog';
+import Faq from './pages/user/Faq';
+import Stores from './pages/user/Stores';
+import WishList from './pages/user/WishList';
 
 function App() {
   return (
@@ -44,6 +53,7 @@ function App() {
             <Route path="settings" element={<Settings />} />
             <Route path="change-password" element={<ChangePassword />} />
             <Route path="logout" element={<Logout />} />
+            
           </Route>
 
           {/* User/customer routes */}
@@ -52,6 +62,17 @@ function App() {
             <Route path="home" element={<CustomerHome />} />
             <Route path="orders" element={<MyOrders />} />
             <Route path="profile" element={<Profile />} />
+            <Route path="wishlist" element={<WishList />} />
+            <Route path="product" element={<CustomerProduct />} />
+            <Route path="cart" element={<Cart/>} />
+            <Route path="deals" element={<CustomerDeals />} />
+            <Route path="about" element={<About />} />
+            <Route path="contact" element={<Contacts />} />
+            <Route path="stores" element={<Stores />} />
+            <Route path="faq" element={<Faq />} />
+            <Route path="blog" element={<Blog />} />
+
+
           </Route>
         </Routes>
       </Router>

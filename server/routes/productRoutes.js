@@ -1,22 +1,33 @@
 const express = require('express');
 const router = express.Router();
-const {
-  getAllProducts,
-  createProduct,
-  getProduct,
-  updateProduct,
-  deleteProduct,
-  searchProducts
-} = require('../controllers/productController');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
+const productController = require('../controllers/productController');
 
-// Public routes (can be accessed without authentication)
-router.get('/', getAllProducts); // Get all products with optional filtering
-router.get('/search', searchProducts); // Search products
-router.get('/:id', getProduct); // Get single product by ID
+// Ensure uploads directory exists
+const uploadDir = path.join(__dirname, '..', 'uploads');
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir);
+}
 
-// Protected routes (should typically require authentication)
-router.post('/', createProduct); // Create new product
-router.put('/:id', updateProduct); // Update product
-router.delete('/:id', deleteProduct); // Delete product
+// Configure multer
+const storage = multer.diskStorage({
+  destination(req, file, cb) {
+    cb(null, uploadDir);
+  },
+  filename(req, file, cb) {
+    cb(null, `${Date.now()}-${file.originalname}`);
+  },
+});
+const upload = multer({ storage });
+
+// Product routes
+router.post('/', upload.single('image'), productController.createProduct);
+router.get('/', productController.getAllProducts);
+router.get('/:id', productController.getProduct);
+router.put('/:id', productController.updateProduct);
+router.delete('/:id', productController.deleteProduct);
+router.get('/search/q', productController.searchProducts);
 
 module.exports = router;
